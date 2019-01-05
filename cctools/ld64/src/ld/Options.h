@@ -28,7 +28,7 @@
 
 #include <stdint.h>
 #include <mach/machine.h>
-#ifdef TAPI_SUPPORT // XXX: There's probadly more to fix.
+#ifdef TAPI_SUPPORT // XXX: There's probably more to fix.
 #include <tapi/tapi.h>
 #endif
 
