@@ -83,7 +83,7 @@ int verbose)
 #else
 	    termsig = waitstatus.w_termsig;
 #endif
-	    if(termsig != 0 && termsig != SIGINT)
+	    if(termsig != 0 && termsig != SIGINT && termsig != SIGPIPE)
 		fatal("fatal error in %s", name);
 	    return(
 #ifndef __OPENSTEP__
@@ -165,7 +165,7 @@ char *str)
 	    p = allocate(bufsize);
 	    _NSGetExecutablePath(p, &bufsize);
 	}
-	/* cctools-port start */
+       /* cctools-port start */
 #if 0 /* old code */
 	prefix = realpath(p, resolved_name);
 	p = rindex(prefix, '/');
@@ -174,22 +174,22 @@ char *str)
 
 	return(makestr(prefix, str, NULL));
 #endif
-	if (*p){
-		prefix = realpath(p, resolved_name);
-		if (prefix){
-			p = rindex(prefix, '/');
-			if(p != NULL)
-				p[1] = '\0';
-		} else{
-			goto invalid;
-		}
-	} else{
-		invalid:;
-		prefix = "";
-	}
-	/* here we add the target alias to the command string */
-	return(makestr(prefix, PROGRAM_PREFIX, str, NULL));
-	/* cctools-port end */
+       if (*p){
+               prefix = realpath(p, resolved_name);
+               if (prefix){
+                       p = rindex(prefix, '/');
+                       if(p != NULL)
+                               p[1] = '\0';
+               } else{
+                       goto invalid;
+               }
+       } else{
+               invalid:;
+               prefix = "";
+       }
+       /* here we add the target alias to the command string */
+       return(makestr(prefix, PROGRAM_PREFIX, str, NULL));
+       /* cctools-port end */
 }
 
 /*

@@ -349,8 +349,7 @@ int *line)
 {
     char *p, *q;
     static char directory_buf[MAXPATHLEN];
-
-	getcwd(directory_buf, sizeof(directory_buf)); /* cctools-port: getwd() -> getcwd() */
+        getcwd(directory_buf, sizeof(directory_buf)); /* cctools-port: getwd() -> getcwd() */
 	*fileName = NULL;
 	*directory = directory_buf;
 	*line = 0;
@@ -388,7 +387,7 @@ char *filename)
   char errbuf[64];
   if (strerror_r (errno, errbuf, sizeof(errbuf))) /* cctools-port: if (errno > sys_nerr) -> strerror_r() */
     {
-      fprintf (stderr, "Unknown error #%d.", xerrno); /* cctools-port: errno -> xerrno */
+      fprintf (stderr, "Unknown error #%d.", xerrno);
     }
   else
     {
@@ -410,8 +409,8 @@ char *
 find_an_include_file(
 char *no_path_name)
 {
-  /* cctools-port: added static keyword */
-  static char				name_buffer [MAXPATHLEN];
+/* cctools-port: added static keyword */
+  static char				  name_buffer [MAXPATHLEN];
   register struct directory_stack	* the_path_pointer;
   register char				* whole_file_name;
 

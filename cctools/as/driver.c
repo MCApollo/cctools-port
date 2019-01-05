@@ -29,8 +29,8 @@ int argc,
 char **argv,
 char **envp)
 {
-    const char *LIB = ASLIBEXECDIR;
-    const char *LOCALLIB = ASLIBEXECDIR;
+    const char *LIB = "../libexec/as/";
+    const char *LOCALLIB = "../local/libexec/as/";
     const char *AS = "/as";
 
     int i, j;
@@ -241,6 +241,7 @@ char **envp)
 	   (arch_flag.cputype == CPU_TYPE_X86_64 ||
 	    arch_flag.cputype == CPU_TYPE_I386 ||
 	    arch_flag.cputype == CPU_TYPE_ARM64 ||
+	    arch_flag.cputype == CPU_TYPE_ARM64_32 ||
 	    arch_flag.cputype == CPU_TYPE_ARM)){
 	    qflag = TRUE;
 	}
@@ -248,6 +249,7 @@ char **envp)
 	   (arch_flag.cputype != CPU_TYPE_X86_64 &&
 	    arch_flag.cputype != CPU_TYPE_I386 &&
 	    arch_flag.cputype != CPU_TYPE_ARM64 &&
+	    arch_flag.cputype != CPU_TYPE_ARM64_32 &&
 	    arch_flag.cputype != CPU_TYPE_ARM)){
 	    printf("%s: can't specifiy -q with -arch %s\n", progname,
 		   arch_flag.name);
@@ -264,9 +266,11 @@ char **envp)
  	 * in the usual place as the other target assemblers this use of clang
 	 * will be removed.
 	 */ 
-	if(arch_flag.cputype == CPU_TYPE_ARM64){
+	if(arch_flag.cputype == CPU_TYPE_ARM64 ||
+           arch_flag.cputype == CPU_TYPE_ARM64_32){
 	    if(Qflag == TRUE){
-		printf("%s: can't specifiy -Q with -arch arm64\n", progname);
+		printf("%s: can't specifiy -Q with -arch %s\n", progname, 
+                       arch_flag.cputype == CPU_TYPE_ARM64 ? "arm64" : "arm64_32");
 		exit(1);
 	    }
 	    run_clang = 1;
@@ -283,8 +287,9 @@ char **envp)
 	    run_clang = 1;
 
 #ifndef DISABLE_CLANG_AS /* cctools-port */
-	if(getenv("CCTOOLS_NO_CLANG_AS") != NULL) /* cctools-port */
-	    run_clang = 0;
+       if(getenv("CCTOOLS_NO_CLANG_AS") != NULL) /* cctools-port */
+           run_clang = 0;
+
 
 	/*
 	 * Use the clang as the assembler if is the default or asked to with
@@ -295,24 +300,25 @@ char **envp)
 	   (arch_flag.cputype == CPU_TYPE_X86_64 ||
 	    arch_flag.cputype == CPU_TYPE_I386 ||
 	    arch_flag.cputype == CPU_TYPE_ARM64 ||
+	    arch_flag.cputype == CPU_TYPE_ARM64_32 ||
 	    arch_flag.cputype == CPU_TYPE_ARM)){
 #if 0 /* cctools port */
 	    as = makestr(prefix, CLANG, NULL);
 #endif
 	    /* cctools-port start */
 #ifndef __APPLE__
-	    char *target_triple = getenv("CCTOOLS_CLANG_AS_TARGET_TRIPLE");
+           char *target_triple = getenv("CCTOOLS_CLANG_AS_TARGET_TRIPLE");
 #endif /* ! __APPLE__ */
-	    as = find_clang();
-	    /* cctools-port end */
-	    if(!as || access(as, F_OK) != 0){ /* cctools-port: added  !as || */
-		printf("%s: assembler (%s) not installed\n", progname,
-		       as ? as : "clang"); /* cctools-port:
-					      added  ? as : "clang" */
+           as = find_clang();
+           /* cctools-port end */
+           if(!as || access(as, F_OK) != 0){ /* cctools-port: added  !as || */
+               printf("%s: assembler (%s) not installed\n", progname,
+                      as ? as : "clang"); /* cctools-port:
+                                             added  ? as : "clang" */
 		exit(1);
 	    }
-	    new_argv = allocate((argc + 10) * sizeof(char *)); /* cctools-port:
-								  + 8 -> + 10 */
+            new_argv = allocate((argc + 10) * sizeof(char *)); /* cctools-port:
+                                                                 + 8 -> + 10 */
 	    new_argv[0] = as;
 	    j = 1;
 	    /*
@@ -367,14 +373,14 @@ char **envp)
 	    /* Add -c or clang will run ld(1). */
 	    new_argv[j] = "-c";
 	    j++;
-	    /* cctools-port start */
+           /* cctools-port start */
 #ifndef __APPLE__
-	    new_argv[j] = "-target";
-	    j++;
-	    new_argv[j] = target_triple ? target_triple : "unknown-apple-darwin";
-	    j++;
+           new_argv[j] = "-target";
+           j++;
+           new_argv[j] = target_triple ? target_triple : "unknown-apple-darwin$
+           j++;
 #endif /* ! __APPLE__ */
-	    /* cctools-port end */
+           /* cctools-port end */
 	    new_argv[j] = NULL;
 	    if(execute(new_argv, verbose))
 		exit(0);
@@ -386,7 +392,7 @@ char **envp)
 	/*
 	 * If this assembler exist try to run it else print an error message.
 	 */
-	as = makestr(LIB, arch_name, AS, NULL);
+	as = makestr(prefix, LIB, arch_name, AS, NULL);
 	new_argv = allocate((argc + 1) * sizeof(char *));
 	new_argv[0] = as;
 	j = 1;
@@ -408,7 +414,7 @@ char **envp)
 	    else
 		exit(1);
 	}
-	as_local = makestr(LOCALLIB, arch_name, AS, NULL);
+	as_local = makestr(prefix, LOCALLIB, arch_name, AS, NULL);
 	new_argv[0] = as_local;
 	if(access(as_local, F_OK) == 0){
 	    argv[0] = as_local;
@@ -422,7 +428,7 @@ char **envp)
 	arch_flags = get_arch_flags();
 	count = 0;
 	for(i = 0; arch_flags[i].name != NULL; i++){
-	    as = makestr(LIB, arch_flags[i].name, AS, NULL);
+	    as = makestr(prefix, LIB, arch_flags[i].name, AS, NULL);
 	    if(access(as, F_OK) == 0){
 		if(count == 0)
 		    printf("Installed assemblers are:\n");
@@ -430,7 +436,7 @@ char **envp)
 		count++;
 	    }
 	    else{
-		as_local = makestr(LOCALLIB, arch_flags[i].name, AS,
+		as_local = makestr(prefix, LOCALLIB, arch_flags[i].name, AS,
 				   NULL);
 		if(access(as_local, F_OK) == 0){
 		    if(count == 0)

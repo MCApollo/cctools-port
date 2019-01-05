@@ -117,7 +117,7 @@ contents(argv)
 		if (!all && !*argv)
 			break;
 next:		skip_arobj(afd);
-	}
+	} 
 	close_archive(afd);
 
 	if (*argv) {

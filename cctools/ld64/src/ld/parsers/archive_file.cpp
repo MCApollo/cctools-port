@@ -88,12 +88,12 @@ public:
 	virtual bool										justInTimeDataOnlyforEachAtom(const char* name, ld::File::AtomHandler& handler) const;
 
 private:
+#ifdef LTO_SUPPORT
 	static bool										validMachOFile(const uint8_t* fileContent, uint64_t fileLength, 
 																	const mach_o::relocatable::ParserOptions& opts);
-#ifdef LTO_SUPPORT
+#endif /* LTO_SUPPORT */
 	static bool										validLTOFile(const uint8_t* fileContent, uint64_t fileLength, 
 																	const mach_o::relocatable::ParserOptions& opts);
-#endif /* LTO_SUPPORT */
 	static cpu_type_t								architecture();
 
 	class Entry : ar_hdr
@@ -235,7 +235,6 @@ bool File<A>::validMachOFile(const uint8_t* fileContent, uint64_t fileLength, co
 {	
 	return mach_o::relocatable::isObjectFile(fileContent, fileLength, opts);
 }
-
 #ifdef LTO_SUPPORT
 template <typename A>
 bool File<A>::validLTOFile(const uint8_t* fileContent, uint64_t fileLength, const mach_o::relocatable::ParserOptions& opts)
@@ -243,7 +242,6 @@ bool File<A>::validLTOFile(const uint8_t* fileContent, uint64_t fileLength, cons
 	return lto::isObjectFile(fileContent, fileLength, opts.architecture, opts.subType);
 }
 #endif /* LTO_SUPPORT */
-
 
 
 template <typename A>
@@ -269,9 +267,9 @@ bool File<A>::validFile(const uint8_t* fileContent, uint64_t fileLength, const m
 		// archive is valid if first .o file is valid
 		return (validMachOFile(p->content(), p->contentSize(), opts)
 #ifdef LTO_SUPPORT
-             || validLTOFile(p->content(), p->contentSize(), opts)
+		|| validLTOFile(p->content(), p->contentSize(), opts)
 #endif /* LTO_SUPPORT */
-        );
+	);
 	}	
 	// empty archive
 	return true;
@@ -517,7 +515,7 @@ bool File<A>::forEachAtom(ld::File::AtomHandler& handler) const
 					}
 				}
 			}
-#endif
+#endif /* LTO_SUPPORT */
 		}
 	}
 	return didSome;
