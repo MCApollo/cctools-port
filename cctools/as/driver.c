@@ -377,7 +377,12 @@ char **envp)
 #ifndef __APPLE__
            new_argv[j] = "-target";
            j++;
+#ifdef TAREGET_ARM64 /* clang -cc1as will complain about unkown-apple-darwin */
+	   new_argv[j] = target_triple ? target_triple : "arm64-apple-darwin";
+#else
            new_argv[j] = target_triple ? target_triple : "unknown-apple-darwin";
+#endif
+
            j++;
 #endif /* ! __APPLE__ */
            /* cctools-port end */
