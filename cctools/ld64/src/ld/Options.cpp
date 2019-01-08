@@ -22,7 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <ctype.h> // ld64-port
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <mach/vm_prot.h>
@@ -34,9 +34,7 @@
 #include <spawn.h>
 #include <cxxabi.h>
 #include <Availability.h>
-#ifdef TAPI_SUPPORT
 #include <tapi/tapi.h>
-#endif /* TAPI_SUPPORT */
 
 #include <vector>
 #include <map>
@@ -62,11 +60,6 @@ namespace lto {
 // magic to place command line in crash reports
 const int crashreporterBufferSize = 2000;
 static char crashreporterBuffer[crashreporterBufferSize];
-#if defined(__has_include) && __has_include(<CrashReporterClient.h>) // ld64-port
-#define HAVE_CRASHREPORTER_HEADER 1
-#else
-#define HAVE_CRASHREPORTER_HEADER 0
-#endif
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
 	#include <CrashReporterClient.h>
 	// hack until ld does not need to build on 10.6 anymore
@@ -862,44 +855,22 @@ void Options::addTAPIInterface(tapi::LinkerInterfaceFile* interface, const char 
 
 bool Options::findFile(const std::string &path, const std::vector<std::string> &tbdExtensions, FileInfo& result) const
 {
-#ifdef TAPI_SUPPORT // XXX: Is this needed?
 	FileInfo tbdInfo;
 	for ( const auto &ext : tbdExtensions ) {
 		auto newPath = replace_extension(path, ext);
 		bool found = tbdInfo.checkFileExists(*this, newPath.c_str());
 		if ( fTraceDylibSearching )
 			printf("[Logging for XBS]%sfound library: '%s'\n", (found ? " " : " not "), newPath.c_str());
-       // If we found a text-based stub file, check if it should be used.
-       if ( !tbdInfo.missing() ) {
-               if (tapi::LinkerInterfaceFile::shouldPreferTextBasedStubFile(tbdInfo.path)) {
-                       result = tbdInfo;
-                       return true;
-               }
+		if ( found )
+			break;
 	}
-#endif /* TAPI_SUPPORT */
 
 	FileInfo dylibInfo;
 	{
 		bool found = dylibInfo.checkFileExists(*this, path.c_str());
 		if ( fTraceDylibSearching )
 			printf("[Logging for XBS]%sfound library: '%s'\n", (found ? " " : " not "), path.c_str());
-#ifndef TAPI_SUPPORT
-               if ( found )
-                       result = dylibInfo;
-               return found;
-#endif /* ! TAPI_SUPPORT (ld64-port) */
 	}
-
-#ifdef TAPI_SUPPORT
-       // There is only a text-based stub file.
-       if ( !tbdInfo.missing() && dylibInfo.missing() ) {
-               result = tbdInfo;
-               return true;
-       }
-       // There is only a dynamic library file.
-       else if ( tbdInfo.missing() && !dylibInfo.missing() ) {
-               result = dylibInfo;
-               return true;
 
 	// There is only a text-based stub file or a dynamic library file.
 	if ( tbdInfo.missing() != dylibInfo.missing() ) {
@@ -923,7 +894,7 @@ bool Options::findFile(const std::string &path, const std::vector<std::string> &
 	} else {
 		return false;
 	}
-#endif /* TAPI_SUPPORT */
+
 	return true;
 }
 
@@ -1201,7 +1172,7 @@ void Options::SetWithWildcards::remove(const NameSet& toBeRemoved)
 {
 	for(NameSet::const_iterator it=toBeRemoved.begin(); it != toBeRemoved.end(); ++it) {
 		const char* symbolName = *it;
-		NameSet::iterator pos = fRegular.find(symbolName);
+		NameSet::const_iterator pos = fRegular.find(symbolName);
 		if ( pos != fRegular.end() )
 			fRegular.erase(pos);
 	}
@@ -1271,7 +1242,7 @@ std::vector<const char*> Options::exportsData() const
 std::vector<const char*> Options::SetWithWildcards::data() const
 {
 	std::vector<const char*> data;
-	for (NameSet::iterator it=regularBegin(); it != regularEnd(); ++it) {
+	for (NameSet::const_iterator it=regularBegin(); it != regularEnd(); ++it) {
 		data.push_back(*it);
 	}
 	for (std::vector<const char*>::const_iterator it=fWildCard.begin(); it != fWildCard.end(); ++it) {
@@ -4003,15 +3974,11 @@ void Options::buildSearchPaths(int argc, const char* argv[])
 			fprintf(stderr, "configured to support archs: %s\n", ALL_SUPPORTED_ARCHS);
 			 // if only -v specified, exit cleanly
 			 if ( argc == 2 ) {
-#ifdef LTO_SUPPORT
 				const char* ltoVers = lto::version();
 				if ( ltoVers != NULL )
 					fprintf(stderr, "LTO support using: %s (static support for %d, runtime is %d)\n",
 							ltoVers, lto::static_api_version(), lto::runtime_api_version());
-#endif /* LTO_SUPPORT */
-#ifdef TAPI_SUPPORT
 				fprintf(stderr, "TAPI support using: %s\n", tapi::Version::getFullVersionAsString().c_str());
-#endif /* TAPI_SUPPORT */
 				exit(0);
 			}
 		}
@@ -4040,9 +4007,6 @@ void Options::buildSearchPaths(int argc, const char* argv[])
 			fDependencyInfoPath = path;
 		}
 		else if ( strcmp(argv[i], "-bitcode_bundle") == 0 ) {
-#if !defined(HAVE_XAR_XAR_H) || !defined(LTO_SUPPORT) // ld64-port
-                       throwf("-bitcode_bundle support via llvm/libxar not compiled in");
-#endif // !HAVE_XAR_XAR_H || !LTO_SUPPORT
 			fBundleBitcode = true;
 		}
 	}
@@ -5029,20 +4993,20 @@ void Options::reconfigureDefaults()
 	}
 
 	// if -sdk_version and -syslibroot not used, but targeting MacOSX, use current OS version
-	if ( (fSDKVersion == 0) && platforms().contains(ld::kPlatform_macOS) ) {
+	if ( (fSDKVersion == 0) && platforms().contains(ld::kPlatform_macOS) ) { // 1
 		// special case if RC_ProjectName and MACOSX_DEPLOYMENT_TARGET are both set that sdkversion=minos
-		if ( getenv("RC_ProjectName") && getenv("MACOSX_DEPLOYMENT_TARGET") ) {
+		if ( getenv("RC_ProjectName") && getenv("MACOSX_DEPLOYMENT_TARGET") ) { // 2
 			fSDKVersion = platforms().minOS(ld::kPlatform_macOS);
-		}
+		} // 2
 		else {
 #ifdef __APPLE__ // ld64-port
 			int mib[2] = { CTL_KERN, KERN_OSRELEASE };
 			char kernVersStr[100];
 			size_t strlen = sizeof(kernVersStr);
 			if ( sysctl(mib, 2, kernVersStr, &strlen, NULL, 0) != -1 ) {
-#else
-                               const char *kernVersStr = "10.5"; // ld64-port: claim we are on 10.5 XXX: Latest version is 10.14.1 for context.
-#endif
+#else			// -------------------------------------------------------------------------
+				const char *kernVersStr = "10.12"; // ld64-port: claim we are on 10.12
+#endif			// -------------------------------------------------------------------------
 				uint32_t kernVers = parseVersionNumber32(kernVersStr);
 				int minor = (kernVers >> 16) - 4;  // kernel major version is 4 ahead of x in 10.x
 				fSDKVersion = 0x000A0000 + (minor << 8);
@@ -5050,7 +5014,6 @@ void Options::reconfigureDefaults()
 			}
 #endif
 		}
-
 	}
 	
 	// allow trie based absolute symbols if targeting new enough OS
@@ -5539,7 +5502,7 @@ void Options::checkIllegalOptionCombinations()
 
 	// make sure all required exported symbols exist
 	std::vector<const char*> impliedExports;
-	for (NameSet::iterator it=fExportSymbols.regularBegin(); it != fExportSymbols.regularEnd(); ++it) {
+	for (NameSet::const_iterator it=fExportSymbols.regularBegin(); it != fExportSymbols.regularEnd(); ++it) {
 		const char* name = *it;
 		const int len = strlen(name);
 		if ( (strcmp(&name[len-3], ".eh") == 0) || (strncmp(name, ".objc_category_name_", 20) == 0) ) {
@@ -5571,7 +5534,7 @@ void Options::checkIllegalOptionCombinations()
 	}
 
 	// make sure all required re-exported symbols exist
-	for (NameSet::iterator it=fReExportSymbols.regularBegin(); it != fReExportSymbols.regularEnd(); ++it) {
+	for (NameSet::const_iterator it=fReExportSymbols.regularBegin(); it != fReExportSymbols.regularEnd(); ++it) {
 		fInitialUndefines.push_back(*it);
 	}
 	
@@ -5856,7 +5819,7 @@ void Options::checkForClassic(int argc, const char* argv[])
 	bool newLinker = false;
 	
 	// build command line buffer in case ld crashes
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070 && HAVE_CRASHREPORTER_HEADER // ld64-port: added && HAVE_CRASHREPORTER_HEADER
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
 	CRSetCrashLogMessage(crashreporterBuffer);
 #endif
 	const char* srcRoot = getenv("SRCROOT");
@@ -5915,7 +5878,7 @@ void Options::checkForClassic(int argc, const char* argv[])
 
 void Options::gotoClassicLinker(int argc, const char* argv[])
 {
-	argv[0] = PROGRAM_PREFIX "ld_classic"; // ld64-port: added PROGRAM_PREFIX
+	argv[0] = "ld_classic";
 	// ld_classic does not support -iphoneos_version_min, so change
 	for(int j=0; j < argc; ++j) {
 		if ( (strcmp(argv[j], "-iphoneos_version_min") == 0) || (strcmp(argv[j], "-ios_version_min") == 0) ) {

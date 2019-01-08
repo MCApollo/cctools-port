@@ -31,6 +31,8 @@
 #include <mach-o/loader.h>
 
 #include <vector>
+// ld64-port MCApollo:
+#include <mutex>
 
 // ld64-port start
 #if defined(__arm__) || defined(__arm64__)

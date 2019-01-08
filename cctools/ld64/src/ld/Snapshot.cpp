@@ -25,6 +25,137 @@
 
 //#define STORE_PID_IN_SNAPSHOT 1
 
+
+
+/* MCApollo
+ * This is a temp placement, this should be moved to a new file and not placed here.
+ */
+
+/* mkpath_np.c START */
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
+
+int
+_mkpath_np(const char *path, mode_t omode, const char ** firstdir)
+{
+	char *apath = NULL;
+	unsigned int depth = 0;
+	mode_t chmod_mode = 0;
+	int retval = 0;
+	int old_errno = errno;
+	struct stat sbuf;
+	if (0 == mkdir(path, omode)) {
+		if (firstdir) {
+			*firstdir = strdup(path);
+		}
+		goto mkpath_exit;
+	}
+	switch (errno) {
+		case ENOENT:
+			break;
+		case EEXIST:
+			if (stat(path, &sbuf) == 0) {
+			    if (S_ISDIR(sbuf.st_mode)) {
+					retval = EEXIST;
+				} else {
+					retval = ENOTDIR;
+				}
+			} else {
+				retval = EIO;
+			}
+			goto mkpath_exit;
+		case EISDIR: /* <rdar://problem/10288022> */
+			retval = EEXIST;
+			goto mkpath_exit;
+		default:
+			retval = errno;
+			goto mkpath_exit;
+	}
+
+	apath = strdup(path);
+	if (apath == NULL) {
+		retval = ENOMEM;
+		goto mkpath_exit;
+	}
+
+	while (1) {
+		char *s = strrchr(apath, '/');
+		if (!s) {
+			retval = ENOENT;
+			goto mkpath_exit;
+		}
+		*s = '\0';
+		depth++;
+		if (0 == mkdir(apath, S_IRWXU | S_IRWXG | S_IRWXO)) {
+			struct stat dirstat;
+			if (-1 == stat(apath, &dirstat)) {
+				retval = ENOENT;
+				goto mkpath_exit;
+			}
+			if ((dirstat.st_mode & (S_IWUSR | S_IXUSR)) != (S_IWUSR | S_IXUSR)) {
+			        chmod_mode = dirstat.st_mode | S_IWUSR | S_IXUSR;
+				if (-1 == chmod(apath, chmod_mode)) {
+					retval = ENOENT;
+					goto mkpath_exit;
+				}
+			}
+			if (firstdir) {
+				*firstdir = strdup(apath);
+			}
+			break;
+		} else if (errno == EEXIST) {
+			if (stat(apath, &sbuf) == 0 &&
+			    S_ISDIR(sbuf.st_mode)) {
+				if (firstdir) {
+					*firstdir = strdup(apath);
+				}
+				break;
+			}
+			retval = ENOTDIR;
+			goto mkpath_exit;
+		} else if (errno != ENOENT) {
+			retval = errno;
+			goto mkpath_exit;
+		}
+	}
+	while (depth > 1) {
+		char *s = strrchr(apath, '\0');
+		*s = '/';
+		depth--;
+		if (-1 == mkdir(apath, S_IRWXU | S_IRWXG | S_IRWXO)) {
+			if (errno == EEXIST)
+				continue;
+			retval = errno;
+			goto mkpath_exit;
+		}
+		if (chmod_mode) {
+			if (-1 == chmod(apath, chmod_mode)) {
+				retval = ENOENT;
+				goto mkpath_exit;
+			}
+		}
+	}
+	if (-1 == mkdir(path, omode)) {
+		retval = errno;
+		if (errno == EEXIST &&
+		    stat(path, &sbuf) == 0 &&
+		    !S_ISDIR(sbuf.st_mode)) {
+			retval = ENOTDIR;
+		}
+	}
+mkpath_exit:
+	free(apath);
+	errno = old_errno;
+	return retval;
+}
+int mkpath_np(const char *path, mode_t omode) {
+	return _mkpath_np(path, omode, NULL);
+}
+/* mkpath_np.c END */
+
 // Well known snapshot file/directory names. These appear in the root of the snapshot.
 // They are collected together here to make managing the namespace easier.
 static const char *frameworksString         = "frameworks";         // directory containing framework stubs (mach-o files)

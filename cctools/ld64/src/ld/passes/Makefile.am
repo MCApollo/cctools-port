@@ -11,6 +11,7 @@ noinst_HEADERS =  \
 	order.h  \
 	tlvp.h \
 	bitcode_bundle.h \
+	thread_starts.h \
 	code_dedup.h
 
 
@@ -40,5 +41,6 @@ libPasses_la_SOURCES =  \
 	tlvp.cpp \
 	stubs/stubs.cpp \
 	bitcode_bundle.cpp \
+	thread_starts.cpp \
 	code_dedup.cpp
 

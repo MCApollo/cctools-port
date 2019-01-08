@@ -377,7 +377,7 @@ char **envp)
 #ifndef __APPLE__
            new_argv[j] = "-target";
            j++;
-           new_argv[j] = target_triple ? target_triple : "unknown-apple-darwin$
+           new_argv[j] = target_triple ? target_triple : "unknown-apple-darwin";
            j++;
 #endif /* ! __APPLE__ */
            /* cctools-port end */

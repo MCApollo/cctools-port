@@ -383,7 +383,9 @@ ld::relocatable::File* Parser::parseMachOFile(const uint8_t* p, size_t len, cons
 #endif
 	objOpts.platforms			= options.platforms;
 	objOpts.subType				= 0;
-	-       objOpts.minOSVersion                    = 0; // ld64-port: https://gist.github.com/tpoechtrager/2efafec8ac996509b9d6
+/*
+	objOpts.minOSVersion                    = 0; // ld64-port: https://gist.github.com/tpoechtrager/2efafec8ac996509b9d6
+*/
 	objOpts.srcKind				= ld::relocatable::File::kSourceLTO;
 	objOpts.treateBitcodeAsData = false;
 	objOpts.usingBitcode		= options.bitcodeBundle;
@@ -629,7 +631,7 @@ void Parser::ltoDiagnosticHandler(lto_codegen_diagnostic_severity_t severity, co
                	       // ld64-port: LLVM 3.5 prints thousands of lines about inlining, loop vectorization etc. by default
                	       // this is a bug (fixed in 3.6/trunk), so for LLVM 3.5, just break
                	       static bool printremarks = ( getenv("LD64_PRINT_LTO_REMARKS") || !strstr(::lto_get_version(), "3.5") );
-               	       if ( !printremarks ) break
+               	       if ( !printremarks ) break;
 			fprintf(stderr, "ld: LTO remark: %s\n", message);
 			break;
 		}

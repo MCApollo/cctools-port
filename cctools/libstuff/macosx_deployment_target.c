@@ -119,7 +119,7 @@ use_default:
 	if(sysctl(osversion_name, 2, osversion, &osversion_len, NULL, 0) == -1)
 	    system_error("sysctl for kern.osversion failed");
 #else
-	memcpy(osversion, "10.5", 5); /* cctools-port: claim we are on 10.5 */
+	memcpy(osversion, "10.12", 5); /* cctools-port: claim we are on 10.12 */
 #endif
 
 	/*
