@@ -174,6 +174,9 @@ int main(int argc, char *argv[])
 
     i = 0;
 
+#ifdef COMPILER
+    compiler = COMPILER;
+#endif
     args[i++] = compiler;
     args[i++] = "-target";
     args[i++] = target;
